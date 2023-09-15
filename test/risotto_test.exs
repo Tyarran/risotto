@@ -2,15 +2,18 @@ defmodule RisottoTest do
   use ExUnit.Case
 
   defmodule TestSimpleFactory do
-    @behaviour Risotto
+    use Risotto
 
     def default() do
-      %{name: "Test"}
+      %{
+        "name" => "Test",
+        name: "Test"
+      }
     end
   end
 
   defmodule TestAddressFactory do
-    @behaviour Risotto
+    use Risotto
 
     def default do
       %{
@@ -22,7 +25,7 @@ defmodule RisottoTest do
   end
 
   defmodule TestUserFactory do
-    @behaviour Risotto
+    use Risotto
 
     def default do
       %{
@@ -41,15 +44,38 @@ defmodule RisottoTest do
     end
   end
 
-  describe "Build data" do
-    test "flat data" do
-      assert Risotto.build(TestSimpleFactory) == %{
+  describe "Build flat data with TestSimpleFactory" do
+    test "- default values" do
+      result = TestSimpleFactory.build()
+
+      assert result == %{
+               "name" => "Test",
                name: "Test"
              }
     end
 
-    test "with subfactory" do
-      result = Risotto.build(TestUserFactory)
+    test "- override values (binary field)" do
+      result = TestSimpleFactory.build(name: "overrided name")
+
+      assert result == %{
+               "name" => "overrided name",
+               name: "Test"
+             }
+    end
+
+    test "- override values (atom field)" do
+      result = TestSimpleFactory.build(":name": "overrided name")
+
+      assert result == %{
+               "name" => "Test",
+               name: "overrided name"
+             }
+    end
+  end
+
+  describe "Build data with TestUserFactory" do
+    test "- default values" do
+      result = TestUserFactory.build()
 
       assert result == %{
                first_name: "test_first_name",
