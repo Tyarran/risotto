@@ -7,33 +7,45 @@ defmodule Risotto do
   @callback default() :: Map.t()
 
   def build(factory, opts) do
+    factory.default()
+    |> build_direct_fields(opts)
+    |> build_lazy_fields()
+  end
+
+  defp build_direct_fields(defaults_fields, opts),
+    do: Enum.reduce(defaults_fields, %{fields: %{}, lazy: []}, &build_fields(&1, &2, opts))
+
+  defp build_lazy_fields(values) do
+    values.lazy
+    |> Enum.map(fn {key, fun} ->
+      value = build_lazy(values.fields, fun)
+      {key, value}
+    end)
+    |> Map.new()
+    |> Map.merge(values.fields)
+  end
+
+  defp build_fields(item, results, opts) do
+    {field_name, value} = item
     %{params: params, values: values} = OptParser.parse(opts)
 
-    factory.default()
-    |> Enum.reduce(%{fields: %{}, lazy: []}, fn {key, value}, acc ->
-      case value do
-        {:lazy, fun} ->
-          put_in(acc, [:lazy], acc.lazy ++ [{key, fun}])
+    case value do
+      {:lazy, fun} ->
+        put_in(results, [:lazy], results.lazy ++ [{field_name, fun}])
 
-        _other ->
-          override_value = values[key]
+      _other ->
+        override_value = values[field_name]
 
-          if override_value do
-            put_in(acc, [:fields, key], override_value)
-          else
-            put_in(acc, [:fields, key], build_field(value, Map.get(params, key, [])))
-          end
-      end
-    end)
-    |> then(fn values ->
-      values.lazy
-      |> Enum.map(fn {key, fun} ->
-        value = build_lazy(values.fields, fun)
-        {key, value}
-      end)
-      |> Map.new()
-      |> Map.merge(values.fields)
-    end)
+        if override_value do
+          put_in(results, [:fields, field_name], override_value)
+        else
+          put_in(
+            results,
+            [:fields, field_name],
+            build_field(value, Map.get(params, field_name, []))
+          )
+        end
+    end
   end
 
   def subfactory(factory_module), do: {:subfactory, factory_module}

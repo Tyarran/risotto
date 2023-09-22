@@ -1,4 +1,8 @@
 defmodule Risotto.OptParser do
+  @moduledoc """
+  Module for options parser
+  """
+
   def parse(opts \\ []) do
     opts
     |> Enum.map(fn {key, value} -> parse_param(key, value) end)
@@ -19,6 +23,14 @@ defmodule Risotto.OptParser do
   defp read_key(""), do: nil
   defp read_key(field_name), do: field_name
 
+  defp build_key(key) do
+    if String.contains?(key, "__") do
+      "{" <> key <> "}"
+    else
+      key
+    end
+  end
+
   defp parse_param(key, value) do
     keys =
       key
@@ -34,14 +46,7 @@ defmodule Risotto.OptParser do
       [first | other_keys] ->
         sub_param =
           other_keys
-          |> Enum.map(fn key ->
-            if String.contains?(key, "__") do
-              "{" <> key <> "}"
-            else
-              key
-            end
-          end)
-          |> Enum.join("__")
+          |> Enum.map_join("__", &build_key/1)
           |> String.to_atom()
 
         {:params, {decode_key(first), [{sub_param, value}]}}
