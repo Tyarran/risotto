@@ -2,32 +2,13 @@ defmodule Risotto do
   @moduledoc """
   Documentation for `Risotto`.
   """
+  alias Risotto.OptParser
 
   @callback default() :: Map.t()
 
-  defp read_key(key) do
-    string_key = Atom.to_string(key)
-
-    if String.starts_with?(string_key, ":") do
-      string_key
-      |> String.replace_prefix(":", "")
-      |> String.to_atom()
-    else
-      string_key
-    end
-  end
-
-  def overriden_key(key, opts) do
-    opts
-    |> Keyword.keys()
-    |> Stream.map(fn key -> {key, read_key(key)} end)
-    |> Stream.filter(fn {_original, readed} -> readed == key end)
-    |> Stream.take(1)
-    |> Enum.map(fn {original, _readed} -> original end)
-    |> List.first()
-  end
-
   def build(factory, opts) do
+    %{params: params, values: values} = OptParser.parse(opts)
+
     factory.default()
     |> Enum.reduce(%{fields: %{}, lazy: []}, fn {key, value}, acc ->
       case value do
@@ -35,12 +16,12 @@ defmodule Risotto do
           put_in(acc, [:lazy], acc.lazy ++ [{key, fun}])
 
         _other ->
-          overriden_key = overriden_key(key, opts)
+          override_value = values[key]
 
-          if overriden_key do
-            put_in(acc, [:fields, key], opts[overriden_key])
+          if override_value do
+            put_in(acc, [:fields, key], override_value)
           else
-            put_in(acc, [:fields, key], build_field(value))
+            put_in(acc, [:fields, key], build_field(value, Map.get(params, key, [])))
           end
       end
     end)
@@ -59,12 +40,14 @@ defmodule Risotto do
   def lazy(fun), do: {:lazy, fun}
   def list(factory_module, opts \\ []), do: {:list, factory_module, opts}
 
-  def build_field({:subfactory, mod}), do: build(mod, [])
-  def build_field({:list, mod, opts}), do: build_list(mod, opts)
-  def build_field(value), do: value
+  def build_field({:subfactory, mod}, build_opts), do: build(mod, build_opts)
+  def build_field({:list, mod, opts}, build_opts), do: build_list(mod, build_opts, opts)
+  def build_field(value, _build_opts), do: value
 
   def build_lazy(values, fun), do: fun.(values)
-  def build_list(mod, count: count), do: Enum.map(1..count, fn _ -> build(mod, []) end)
+
+  def build_list(mod, build_opts, count: count),
+    do: Enum.map(1..count, fn _ -> build(mod, build_opts) end)
 
   defmacro __using__(_opts) do
     quote do

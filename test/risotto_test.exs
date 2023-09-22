@@ -54,21 +54,21 @@ defmodule RisottoTest do
              }
     end
 
-    test "- override values (binary field)" do
-      result = TestSimpleFactory.build(name: "overrided name")
-
-      assert result == %{
-               "name" => "overrided name",
-               name: "Test"
-             }
-    end
-
     test "- override values (atom field)" do
-      result = TestSimpleFactory.build(":name": "overrided name")
+      result = TestSimpleFactory.build(name: "overrided name")
 
       assert result == %{
                "name" => "Test",
                name: "overrided name"
+             }
+    end
+
+    test "- override values (binary field)" do
+      result = TestSimpleFactory.build(_name: "overrided name")
+
+      assert result == %{
+               "name" => "overrided name",
+               name: "Test"
              }
     end
   end
