@@ -72,4 +72,15 @@ defmodule Risotto do
       def build(), do: build([])
     end
   end
+
+  defmodule Factory do
+    defmacro build(factory, opts) do
+      result = Risotto.build(factory, opts)
+      dbg(result)
+
+      # quote do
+      #   Macro.escape(result)
+      # end
+    end
+  end
 end
