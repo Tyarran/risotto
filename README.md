@@ -75,10 +75,10 @@ defmodule MyApp.UserTest do
   use ExUnit.Case
 
   test "creates a user" do
-    user = UserFactory.build(age: 37)
+    user = UserFactory.build(first_name: "Romain", last_name: "Commandé", age: 37)
 
-    assert user.first_name == "John"
-    assert user.last_name == "Doe"
+    assert user.first_name == "Romain"
+    assert user.last_name == "Commandé"
     assert user.age == 37
   end
 end
