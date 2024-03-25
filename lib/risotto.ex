@@ -11,14 +11,31 @@ defmodule Risotto do
 
   defmacro field(name, value) do
     quote do
-      value = unquote(value)
-      new_value = if is_function(value), do: value, else: fn -> value end
-
-      {:value, unquote(name), new_value}
+      handle_field(unquote(name), unquote(value))
     end
   end
 
-  defmacro factory(struct, do: {t, c, fields}) do
+  def handle_field(name, {:subfactory, struct, opts}) do
+    {:subfactory, name, struct, opts}
+  end
+
+  def handle_field(name, value) when is_function(value) do
+    {:value, name, value}
+  end
+
+  def handle_field(name, value) do
+    {:value, name, fn -> value end}
+  end
+
+  defmacro factory(struct, do: {:field, _c, _fields} = fields) do
+    handle_factory(struct, {:__block__, [], [fields]})
+  end
+
+  defmacro factory(struct, do: {_t, _c, _fields} = expression) do
+    handle_factory(struct, expression)
+  end
+
+  defp handle_factory(struct, {t, c, fields}) do
     new_expression = {t, c, [fields]}
 
     quote do
@@ -28,15 +45,44 @@ defmodule Risotto do
         |> then(&struct(unquote(struct), &1))
       end
 
-      defp build_key_value(field, opts) do
-        {:value, name, func} = field
+      # sobelow_skip ["DOS.StringToAtom"]
+      defp build_key_value({:subfactory, atom_fieldname, module, sub_opts}, opts) do
+        name = Atom.to_string(atom_fieldname)
 
+        value =
+          Keyword.get(sub_opts, atom_fieldname) || Keyword.get(opts, atom_fieldname)
+
+        if value do
+          {atom_fieldname, value}
+        else
+          from_parent_opts =
+            opts
+            |> Enum.filter(fn {key, _value} ->
+              String.starts_with?(Atom.to_string(key), name <> "__")
+            end)
+            |> Enum.map(fn {key, value} ->
+              {String.replace_prefix(Atom.to_string(key), name <> "__", "")
+               |> String.to_atom(), value}
+            end)
+
+          merged_opts = Keyword.merge(sub_opts, from_parent_opts)
+          {atom_fieldname, module.build(merged_opts)}
+        end
+      end
+
+      defp build_key_value({:value, name, func}, opts) do
         if Keyword.has_key?(opts, name) do
           {name, Keyword.get(opts, name)}
         else
           {name, func.()}
         end
       end
+    end
+  end
+
+  defmacro subfactory(module, opts \\ []) do
+    quote do
+      {:subfactory, unquote(module), unquote(opts)}
     end
   end
 end
