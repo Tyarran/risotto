@@ -35,6 +35,7 @@ defmodule Risotto do
     handle_factory(struct, expression)
   end
 
+  # sobelow_skip ["DOS.StringToAtom"]
   defp handle_factory(struct, {t, c, fields}) do
     new_expression = {t, c, [fields]}
 
@@ -56,14 +57,16 @@ defmodule Risotto do
           {atom_fieldname, value}
         else
           from_parent_opts =
-            opts
-            |> Enum.filter(fn {key, _value} ->
-              String.starts_with?(Atom.to_string(key), name <> "__")
-            end)
-            |> Enum.map(fn {key, value} ->
-              {String.replace_prefix(Atom.to_string(key), name <> "__", "")
-               |> String.to_atom(), value}
-            end)
+            for {atom_key, value} <- opts,
+                key = Atom.to_string(atom_key),
+                String.starts_with?(key, name <> "__") do
+              new_key =
+                key
+                |> String.replace_prefix(name <> "__", "")
+                |> String.to_atom()
+
+              {new_key, value}
+            end
 
           merged_opts = Keyword.merge(sub_opts, from_parent_opts)
           {atom_fieldname, module.build(merged_opts)}
