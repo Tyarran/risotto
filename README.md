@@ -27,10 +27,7 @@ Then, run:
 $ mix deps.get
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/risotto>.
-
+Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc) and published on [HexDocs](https://hexdocs.pm). Once published, the docs can be found at <https://hexdocs.pm/risotto>.
 
 ## Usage
 
@@ -43,9 +40,10 @@ defmodule MyApp.UserFactory do
   use Risotto
 
   factory User do
-      field(:first_name, "John")
-      field(:last_name, "Doe")
-      field(:age, 42)
+    field(:first_name, "John")
+    field(:last_name, "Doe")
+    field(:age, 42)
+    field(:address, subfactory(MyApp.AddressFactory))
   end
 end
 ```
@@ -64,26 +62,27 @@ defmodule MyApp.UserTest do
     assert user.first_name == "John"
     assert user.last_name == "Doe"
     assert user.age == 42
+    assert user.address == %MyApp.Address{}
   end
 end
 ```
 
-You can also pass field values to customize the data building depending on your tests :
+You can also pass field values to customize the data building depending on your tests:
 
 ```elixir
 defmodule MyApp.UserTest do
   use ExUnit.Case
 
   test "creates a user" do
-    user = UserFactory.build(first_name: "Romain", last_name: "Commandé", age: 37)
+    user = UserFactory.build(first_name: "Romain", last_name: "Commandé", age: 37, address: %MyApp.Address{city: "Paris"})
 
     assert user.first_name == "Romain"
     assert user.last_name == "Commandé"
     assert user.age == 37
+    assert user.address == %MyApp.Address{city: "Paris"}
   end
 end
 ```
-
 
 For more information on how to use Risotto, please refer to the [documentation](https://risotto-docs.example.com).
 

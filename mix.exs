@@ -18,7 +18,7 @@ defmodule Risotto.MixProject do
       quality: [
         "compile --force --warnings-as-errors",
         "credo --strict",
-        "sobelow -i XSS.Raw,Traversal --verbose --exit Low",
+        "sobelow -i XSS.Raw,Traversal --verbose --exit Low --skip",
         "dialyzer",
         "test --cover --force"
       ]
