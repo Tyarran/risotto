@@ -50,14 +50,14 @@ end
 
 ### Using Factories in Tests
 
-You can use the defined factories in your tests to create test data. Here's an example of how you can use the `build/1` function to create a user struct:
+You can use the defined factories in your tests to create test data. Here's an example of how you can use the `build!/1` function to create a user struct:
 
 ```elixir
 defmodule MyApp.UserTest do
   use ExUnit.Case
 
   test "creates a user" do
-    user = UserFactory.build()
+    user = UserFactory.build!()
 
     assert user.first_name == "John"
     assert user.last_name == "Doe"
@@ -74,7 +74,7 @@ defmodule MyApp.UserTest do
   use ExUnit.Case
 
   test "creates a user" do
-    user = UserFactory.build(first_name: "Romain", last_name: "Commandé", age: 37, address: %MyApp.Address{city: "Paris"})
+    user = UserFactory.build!(first_name: "Romain", last_name: "Commandé", age: 37, address: %MyApp.Address{city: "Paris"})
 
     assert user.first_name == "Romain"
     assert user.last_name == "Commandé"
