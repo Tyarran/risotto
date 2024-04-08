@@ -2,7 +2,6 @@ defmodule Risotto do
   @moduledoc """
   Documentation for `Risotto`.
   """
-
   defmacro __using__(_) do
     quote do
       import Risotto
@@ -40,10 +39,17 @@ defmodule Risotto do
     new_expression = {t, c, [fields]}
 
     quote do
-      def build(opts \\ []) do
+      def build!(opts \\ []) do
         unquote(new_expression)
         |> Enum.map(&build_key_value(&1, opts))
         |> then(&struct(unquote(struct), &1))
+      end
+
+      def build(opts \\ []) do
+        build!(opts)
+        |> then(fn builded -> {:ok, builded} end)
+      rescue
+        e -> {:error, e}
       end
 
       # sobelow_skip ["DOS.StringToAtom"]
@@ -69,7 +75,8 @@ defmodule Risotto do
             end
 
           merged_opts = Keyword.merge(sub_opts, from_parent_opts)
-          {atom_fieldname, module.build(merged_opts)}
+          {:ok, sub_struct} = module.build(merged_opts)
+          {atom_fieldname, sub_struct}
         end
       end
 

@@ -38,43 +38,87 @@ defmodule RisottoTest do
     end
   end
 
+  defmodule PersonFactory3 do
+    @moduledoc """
+    A factory for the `Person` struch wich throw an exception with the age field 
+    """
+    use Risotto
+
+    factory Person do
+      field(:first_name, "John")
+      field(:last_name, "Doe")
+      # Will throw an exception
+      field(:age, fn -> raise "boom!" end)
+    end
+  end
+
   describe "PersonFactory" do
     test "builds a person" do
-      result = PersonFactory.build()
+      person = PersonFactory.build!()
 
-      assert result.first_name == "John"
-      assert result.last_name == "Doe"
-      assert result.age == 42
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
     end
 
     test "builds a person with params" do
       age = Date.utc_today().year - 1986
 
-      result = PersonFactory.build(first_name: "Romain", last_name: "Commandé", age: age)
+      person = PersonFactory.build!(first_name: "Romain", last_name: "Commandé", age: age)
 
-      assert result.first_name == "Romain"
-      assert result.last_name == "Commandé"
-      assert result.age == age
+      assert person.first_name == "Romain"
+      assert person.last_name == "Commandé"
+      assert person.age == age
     end
   end
 
   describe "PersonFactory2" do
     test "builds a person" do
-      result = PersonFactory2.build()
+      person = PersonFactory2.build!()
 
-      assert result.first_name == "John"
-      assert result.last_name == "Doe"
-      assert result.age == 42
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
     end
 
     test "builds a person with params" do
       age = Date.utc_today().year - 1986
 
-      result = PersonFactory2.build(first_name: "Romain", last_name: "Commandé", age: age)
+      person = PersonFactory2.build!(first_name: "Romain", last_name: "Commandé", age: age)
 
-      assert result.first_name == "Romain"
-      assert result.last_name == "Commandé"
-      assert result.age == age
+      assert person.first_name == "Romain"
+      assert person.last_name == "Commandé"
+      assert person.age == age
+    end
+  end
+
+  describe "PersonFactory3" do
+    test "builds a person shoud return an error" do
+      result = PersonFactory3.build()
+
+      assert result == {:error, %RuntimeError{message: "boom!"}}
+    end
+
+    test "builds a person with build!/1 should raises an exception" do
+      assert_raise RuntimeError, fn ->
+        PersonFactory3.build!()
+      end
+    end
+
+    test "builds a person with the problematic field overrided should be ok" do
+      {:ok, person} = PersonFactory3.build(age: 42)
+
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
+    end
+
+    test "builds a person with the problematic field overrided should return a person" do
+      person = PersonFactory3.build!(age: 42)
+
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
     end
   end
 end
