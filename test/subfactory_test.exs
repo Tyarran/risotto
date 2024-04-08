@@ -50,7 +50,7 @@ defmodule Risotto.SubfactoryTest do
 
   describe "AStructFactory.build/1" do
     test "Should build a AStruct struct with default values" do
-      result = AStructFactory.build()
+      result = AStructFactory.build!()
 
       assert result.value == 42
       assert result.field.value == 42
@@ -58,7 +58,7 @@ defmodule Risotto.SubfactoryTest do
     end
 
     test "Should build a AStruct struct with value at first level overrided" do
-      result = AStructFactory.build(value: 43)
+      result = AStructFactory.build!(value: 43)
 
       assert result.value == 43
       assert result.field.value == 42
@@ -66,7 +66,7 @@ defmodule Risotto.SubfactoryTest do
     end
 
     test "Should build a AStruct struct with value at second level overrided" do
-      result = AStructFactory.build(field__value: 43)
+      result = AStructFactory.build!(field__value: 43)
 
       assert result.value == 42
       assert result.field.value == 43
@@ -74,7 +74,7 @@ defmodule Risotto.SubfactoryTest do
     end
 
     test "Should build a AStruct struct with value at third level overrided" do
-      result = AStructFactory.build(field__subfield__value: 43)
+      result = AStructFactory.build!(field__subfield__value: 43)
 
       assert result.value == 42
       assert result.field.value == 42
@@ -83,7 +83,7 @@ defmodule Risotto.SubfactoryTest do
 
     test "Should build a AStruct struct with all values overrided" do
       result =
-        AStructFactory.build(
+        AStructFactory.build!(
           value: 43,
           field__value: 44,
           field__subfield__value: 45
@@ -96,7 +96,7 @@ defmodule Risotto.SubfactoryTest do
 
     test "Should build a AStruct struct with just one level" do
       result =
-        AStructFactory.build(field: "no substruct here")
+        AStructFactory.build!(field: "no substruct here")
 
       assert result.value == 42
       assert result.field == "no substruct here"
