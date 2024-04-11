@@ -48,6 +48,32 @@ defmodule Risotto.SubfactoryTest do
     end
   end
 
+  defmodule ASubSubInvalidStructFactory do
+    use Risotto
+
+    factory ASubSubStruct do
+      field(:value, fn -> raise "boom" end)
+    end
+  end
+
+  defmodule ASubInvalidStructFactory do
+    use Risotto
+
+    factory ASubStruct do
+      field(:subfield, subfactory(ASubSubInvalidStructFactory))
+      field(:value, 42)
+    end
+  end
+
+  defmodule AInvalidStructFactory do
+    use Risotto
+
+    factory AStruct do
+      field(:field, subfactory(ASubInvalidStructFactory))
+      field(:value, 42)
+    end
+  end
+
   describe "AStructFactory.build/1" do
     test "Should build a AStruct struct with default values" do
       result = AStructFactory.build!()
@@ -100,6 +126,14 @@ defmodule Risotto.SubfactoryTest do
 
       assert result.value == 42
       assert result.field == "no substruct here"
+    end
+  end
+
+  describe "AInvalidStructFactory.build/1" do
+    test "Shoud raise an exception" do
+      assert_raise RuntimeError, fn ->
+        AInvalidStructFactory.build!()
+      end
     end
   end
 end
