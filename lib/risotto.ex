@@ -34,6 +34,7 @@ defmodule Risotto do
     handle_factory(struct, expression)
   end
 
+  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   # sobelow_skip ["DOS.StringToAtom"]
   defp handle_factory(struct, {t, c, fields}) do
     new_expression = {t, c, [fields]}
@@ -41,7 +42,9 @@ defmodule Risotto do
     quote do
       def build!(opts \\ []) do
         unquote(new_expression)
-        |> Enum.map(&build_key_value(&1, opts))
+        |> create_tasks(opts)
+        |> Task.await_many()
+        |> get_values_or_raise()
         |> then(&struct(unquote(struct), &1))
       end
 
@@ -50,6 +53,25 @@ defmodule Risotto do
         |> then(fn builded -> {:ok, builded} end)
       rescue
         e -> {:error, e}
+      end
+
+      defp create_tasks(expressions, opts) do
+        Enum.map(expressions, fn exp ->
+          Task.async(fn ->
+            try do
+              {:ok, build_key_value(exp, opts)}
+            rescue
+              e ->
+                {:error, {e, __STACKTRACE__}}
+            end
+          end)
+        end)
+      end
+
+      defp get_values_or_raise(task_results) do
+        Enum.map(task_results, fn {res, val} ->
+          if res == :ok, do: val, else: reraise(elem(val, 0), elem(val, 1))
+        end)
       end
 
       # sobelow_skip ["DOS.StringToAtom"]
@@ -75,8 +97,7 @@ defmodule Risotto do
             end
 
           merged_opts = Keyword.merge(sub_opts, from_parent_opts)
-          {:ok, sub_struct} = module.build(merged_opts)
-          {atom_fieldname, sub_struct}
+          {atom_fieldname, module.build!(merged_opts)}
         end
       end
 
