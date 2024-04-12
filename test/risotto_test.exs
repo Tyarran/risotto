@@ -1,98 +1,124 @@
 defmodule RisottoTest do
   use ExUnit.Case
 
-  defmodule TestSimpleFactory do
+  defmodule Person do
+    @enforce_keys [:first_name, :last_name, :age]
+    defstruct @enforce_keys
+
+    @type t :: %__MODULE__{
+            first_name: String.t(),
+            last_name: String.t(),
+            age: non_neg_integer()
+          }
+  end
+
+  defmodule PersonFactory do
+    @moduledoc """
+    A simple factory for the `Person` struct.
+    """
     use Risotto
 
-    def default() do
-      %{
-        "name" => "Test",
-        name: "Test"
-      }
+    factory Person do
+      field(:first_name, "John")
+      field(:last_name, "Doe")
+      field(:age, 42)
     end
   end
 
-  defmodule TestAddressFactory do
+  defmodule PersonFactory2 do
+    @moduledoc """
+    A factory for the `Person` struct with a function as a default value.
+    """
     use Risotto
 
-    def default do
-      %{
-        street: "Test Street",
-        city: "Test City",
-        country: "Test Country"
-      }
+    factory Person do
+      field(:first_name, "John")
+      field(:last_name, "Doe")
+      field(:age, fn -> 42 end)
     end
   end
 
-  defmodule TestUserFactory do
+  defmodule PersonFactory3 do
+    @moduledoc """
+    A factory for the `Person` struch wich throw an exception with the age field 
+    """
     use Risotto
 
-    def default do
-      %{
-        first_name: "test_first_name",
-        last_name: "test_last_name",
-        age: 42,
-        address: Risotto.subfactory(TestAddressFactory),
-        other_addresses: Risotto.list(TestAddressFactory, count: 2),
-        name: Risotto.lazy(fn user -> "#{user.first_name} #{user.last_name}" end),
-        name2: Risotto.lazy(&name2/1)
-      }
-    end
-
-    def name2(user_data) do
-      "#{user_data.first_name} #{user_data.last_name}"
+    factory Person do
+      field(:first_name, "John")
+      field(:last_name, "Doe")
+      # Will throw an exception
+      field(:age, fn -> raise "boom!" end)
     end
   end
 
-  describe "Build flat data with TestSimpleFactory" do
-    test "- default values" do
-      result = TestSimpleFactory.build()
+  describe "PersonFactory" do
+    test "builds a person" do
+      person = PersonFactory.build!()
 
-      assert result == %{
-               "name" => "Test",
-               name: "Test"
-             }
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
     end
 
-    test "- override values (atom field)" do
-      result = TestSimpleFactory.build(name: "overrided name")
+    test "builds a person with params" do
+      age = Date.utc_today().year - 1986
 
-      assert result == %{
-               "name" => "Test",
-               name: "overrided name"
-             }
-    end
+      person = PersonFactory.build!(first_name: "Romain", last_name: "Commandé", age: age)
 
-    test "- override values (binary field)" do
-      result = TestSimpleFactory.build(_name: "overrided name")
-
-      assert result == %{
-               "name" => "overrided name",
-               name: "Test"
-             }
+      assert person.first_name == "Romain"
+      assert person.last_name == "Commandé"
+      assert person.age == age
     end
   end
 
-  describe "Build data with TestUserFactory" do
-    test "- default values" do
-      result = TestUserFactory.build()
+  describe "PersonFactory2" do
+    test "builds a person" do
+      person = PersonFactory2.build!()
 
-      assert result == %{
-               first_name: "test_first_name",
-               last_name: "test_last_name",
-               age: 42,
-               address: %{
-                 street: "Test Street",
-                 city: "Test City",
-                 country: "Test Country"
-               },
-               other_addresses: [
-                 %{street: "Test Street", city: "Test City", country: "Test Country"},
-                 %{street: "Test Street", city: "Test City", country: "Test Country"}
-               ],
-               name: "test_first_name test_last_name",
-               name2: "test_first_name test_last_name"
-             }
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
+    end
+
+    test "builds a person with params" do
+      age = Date.utc_today().year - 1986
+
+      person = PersonFactory2.build!(first_name: "Romain", last_name: "Commandé", age: age)
+
+      assert person.first_name == "Romain"
+      assert person.last_name == "Commandé"
+      assert person.age == age
+    end
+  end
+
+  describe "PersonFactory3" do
+    test "builds a person shoud return an error" do
+      result = PersonFactory3.build()
+
+      assert result == {:error, %RuntimeError{message: "boom!"}}
+    end
+
+    test "builds a person with build!/1 should raises an exception" do
+      assert_raise RuntimeError, fn ->
+        PersonFactory3.build!()
+      end
+    end
+
+    test "builds a person with the problematic field overrided should be ok" do
+      {:ok, person} = PersonFactory3.build(age: 42)
+
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
+    end
+
+    test "builds a person with the problematic field overrided should return a person" do
+      person = PersonFactory3.build!(age: 42)
+
+      assert person.first_name == "John"
+      assert person.last_name == "Doe"
+      assert person.age == 42
     end
   end
 end
