@@ -18,6 +18,10 @@ defmodule Risotto do
     {:subfactory, name, struct, opts}
   end
 
+  def handle_field(name, {:lazy, func}) do
+    {:lazy, name, func}
+  end
+
   def handle_field(name, value) when is_function(value) do
     {:value, name, value}
   end
@@ -41,11 +45,24 @@ defmodule Risotto do
 
     quote do
       def build!(opts \\ []) do
-        unquote(new_expression)
-        |> create_tasks(opts)
-        |> Task.await_many()
-        |> get_values_or_raise()
-        |> then(&struct(unquote(struct), &1))
+        {direct_expr, lazy_expr} =
+          Enum.split_with(unquote(new_expression), fn expr ->
+            elem(expr, 0) != :lazy
+          end)
+
+        resolved =
+          direct_expr
+          |> create_direct_tasks(opts)
+          |> Task.await_many()
+          |> get_values_or_raise()
+
+        resolved_lazy =
+          lazy_expr
+          |> create_lazy_tasks(resolved)
+          |> Task.await_many()
+          |> get_values_or_raise()
+
+        struct(unquote(struct), resolved ++ resolved_lazy)
       end
 
       def build(opts \\ []) do
@@ -55,16 +72,26 @@ defmodule Risotto do
         e -> {:error, e}
       end
 
-      defp create_tasks(expressions, opts) do
+      defp create_direct_tasks(expressions, opts) do
         Enum.map(expressions, fn exp ->
-          Task.async(fn ->
-            try do
-              {:ok, build_key_value(exp, opts)}
-            rescue
-              e ->
-                {:error, {e, __STACKTRACE__}}
-            end
-          end)
+          create_resolve_task(fn -> build_key_value(exp, opts) end)
+        end)
+      end
+
+      defp create_lazy_tasks(expressions, resolved) do
+        Enum.map(expressions, fn {:lazy, fieldname, func} ->
+          create_resolve_task(fn -> {fieldname, func.(resolved)} end)
+        end)
+      end
+
+      defp create_resolve_task(func) do
+        Task.async(fn ->
+          try do
+            {:ok, func.()}
+          rescue
+            e ->
+              {:error, {e, __STACKTRACE__}}
+          end
         end)
       end
 
@@ -114,6 +141,12 @@ defmodule Risotto do
   defmacro subfactory(module, opts \\ []) do
     quote do
       {:subfactory, unquote(module), unquote(opts)}
+    end
+  end
+
+  defmacro lazy(func) do
+    quote do
+      {:lazy, unquote(func)}
     end
   end
 end
