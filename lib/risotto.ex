@@ -2,74 +2,95 @@ defmodule Risotto do
   @moduledoc """
   Documentation for `Risotto`.
   """
-  alias Risotto.OptParser
 
-  @callback default() :: Map.t()
+  alias Risotto.Builder
+  alias Risotto.CounterManager
 
-  def build(factory, opts) do
-    factory.default()
-    |> build_direct_fields(opts)
-    |> build_lazy_fields()
-  end
-
-  defp build_direct_fields(defaults_fields, opts),
-    do: Enum.reduce(defaults_fields, %{fields: %{}, lazy: []}, &build_fields(&1, &2, opts))
-
-  defp build_lazy_fields(values) do
-    values.lazy
-    |> Enum.map(fn {key, fun} ->
-      value = build_lazy(values.fields, fun)
-      {key, value}
-    end)
-    |> Map.new()
-    |> Map.merge(values.fields)
-  end
-
-  defp build_fields(item, results, opts) do
-    {field_name, value} = item
-    %{params: params, values: values} = OptParser.parse(opts)
-
-    case value do
-      {:lazy, fun} ->
-        put_in(results, [:lazy], results.lazy ++ [{field_name, fun}])
-
-      _other ->
-        override_value = values[field_name]
-
-        if override_value do
-          put_in(results, [:fields, field_name], override_value)
-        else
-          put_in(
-            results,
-            [:fields, field_name],
-            build_field(value, Map.get(params, field_name, []))
-          )
-        end
+  defmacro __using__(_) do
+    quote do
+      import Risotto
+      CounterManager.start_link(nil)
     end
   end
 
-  def subfactory(factory_module), do: {:subfactory, factory_module}
-  def lazy(fun), do: {:lazy, fun}
-  def list(factory_module, opts \\ []), do: {:list, factory_module, opts}
-
-  def build_field({:subfactory, mod}, build_opts), do: build(mod, build_opts)
-  def build_field({:list, mod, opts}, build_opts), do: build_list(mod, build_opts, opts)
-  def build_field(value, _build_opts), do: value
-
-  def build_lazy(values, fun), do: fun.(values)
-
-  def build_list(mod, build_opts, count: count),
-    do: Enum.map(1..count, fn _ -> build(mod, build_opts) end)
-
-  defmacro __using__(_opts) do
+  defmacro field(name, value) do
     quote do
-      @behaviour Risotto
+      handle_field(unquote(name), unquote(value))
+    end
+  end
 
-      def build(opts) do
-        Risotto.build(__MODULE__, opts)
+  def handle_field(name, {:subfactory, struct, opts}) do
+    {:subfactory, name, struct, opts}
+  end
+
+  def handle_field(name, {:lazy, func}) do
+    {:lazy, name, func}
+  end
+
+  def handle_field(name, {:sequence, id, func, start, pas}) do
+    CounterManager.register(id, name, start, pas)
+    {:sequence, id, name, func}
+  end
+
+  def handle_field(name, value) when is_function(value) do
+    {:value, name, value}
+  end
+
+  def handle_field(name, value) do
+    {:value, name, fn -> value end}
+  end
+
+  defmacro factory(struct, do: {:field, _c, _fields} = fields) do
+    handle_factory(struct, {:__block__, [], [fields]})
+  end
+
+  defmacro factory(struct, do: {_t, _c, _fields} = expression) do
+    handle_factory(struct, expression)
+  end
+
+  # sobelow_skip ["DOS.StringToAtom"]
+  defp handle_factory(struct, {t, c, fields}) do
+    new_expression = {t, c, [fields]}
+
+    quote do
+      def build!(opts \\ []) do
+        Builder.build!(unquote(struct), unquote(new_expression), opts)
       end
 
-      def build(), do: build([])
+      def build(opts \\ []) do
+        Builder.build(unquote(struct), unquote(new_expression), opts)
+      end
+    end
+  end
+
+  defmacro subfactory(module, opts \\ []) do
+    quote do
+      {:subfactory, unquote(module), unquote(opts)}
+    end
+  end
+
+  defmacro lazy(func) do
+    quote do
+      {:lazy, unquote(func)}
+    end
+  end
+
+  defmacro sequence(opts \\ []) do
+    id = UUID.uuid4()
+    start = Keyword.get(opts, :start, 1)
+    pas = Keyword.get(opts, :pas, 1)
+
+    func =
+      Keyword.get(
+        opts,
+        :func,
+        quote do
+          fn index -> index end
+        end
+      )
+
+    quote do
+      {:sequence, unquote(id), unquote(func), unquote(start), unquote(pas)}
     end
   end
 end
