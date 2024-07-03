@@ -2,7 +2,6 @@ defmodule Risotto.LazyTest do
   use ExUnit.Case
 
   setup_all do
-    # |> dbg()
     Application.get_env(:risotto, :default_counter)
     :ok
   end

@@ -3,8 +3,8 @@ defmodule Risotto do
   Documentation for `Risotto`.
   """
 
-  alias Risotto.CounterManager
   alias Risotto.Builder
+  alias Risotto.CounterManager
 
   defmacro __using__(_) do
     quote do
